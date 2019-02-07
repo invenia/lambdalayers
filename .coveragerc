@@ -1,0 +1,13 @@
+[report]
+precision = 2
+show_missing = True
+skip_covered = True
+exclude_lines =
+    # Ignore unreachable code
+    if __name__ == .__main__.:
+
+    # Specifically ignore a line with this text
+    pragma: no cover
+
+[html]
+directory = dist/coverage
