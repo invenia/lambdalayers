@@ -45,7 +45,7 @@ def list_versions(
 def _read_local_layer(local_path: Path) -> Tuple[List[Path], Optional[Path]]:
     layer_files = list(filter(lambda path: not path.match(".*"), local_path.glob("*")))
 
-    requirements_file: Optional[Path] = Path("requirements.txt")
+    requirements_file: Optional[Path] = local_path / "requirements.txt"
     if requirements_file in layer_files:
         layer_files.remove(requirements_file)
     else:
@@ -92,7 +92,11 @@ def publish_layer(
     lambda_client = boto_session.client("lambda")
 
     files, requirements_file = _read_local_layer(local_path)
-    package = plz.build_package(build_path, *files, requirements=requirements_file)
+    package = plz.build_package(
+        build_path, *files, requirements=requirements_file, zipped_prefix="python"
+    )
+
+    logger.info(f"Built package for {layer} at {package}")
 
     published = lambda_client.publish_layer_version(
         LayerName=layer,
@@ -169,7 +173,11 @@ def main(args=None):
                 logger.info(f"No versions found for layer '{args.layer}'")
     elif args.command == "publish":
         account, organization = _permission_ids(
-            args.account, args.organization, args.my_account, args.my_organization
+            session,
+            args.account,
+            args.organization,
+            args.my_account,
+            args.my_organization,
         )
 
         print(
@@ -177,7 +185,7 @@ def main(args=None):
                 session,
                 args.layer,
                 args.version,
-                args.local_path,
+                args.layer_path,
                 None,
                 args.runtimes,
                 account,
@@ -191,9 +199,7 @@ def parse_args(args=None):
         description="Useful AWS Lambda layers for Invenia (and code to deploy them)"
     )
 
-    subparsers = parser.add_subparsers(
-        dest="command", required=True, help="Subcommand help"
-    )
+    subparsers = parser.add_subparsers(dest="command", help="Subcommand help")
     subparsers.add_parser("list", help="List all available layers")
     subparsers.add_parser("versions", help="List all available versions of a layer")
     subparsers.add_parser("publish", help="Publish a new version of a layer")

@@ -15,7 +15,9 @@ setup(
     author="Invenia Technical Computing",
     url="https://gitlab.invenia.ca/infrastructure/lambdalayers",
     packages=find_packages(exclude=["tests"]),
-    dependency_links=["git+https://gitlab.invenia.ca/infrastructure/plz@pip-fix"],
+    dependency_links=[
+        "git+https://gitlab.invenia.ca/infrastructure/plz@master#egg=plz"
+    ],
     install_requires=REQUIREMENTS,
     tests_require=TEST_DEPS,
     extras_require=EXTRAS,
