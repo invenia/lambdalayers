@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import boto3
-
 import plz
 
 
@@ -93,7 +92,7 @@ def publish_layer(
 
     files, requirements_file = _read_local_layer(local_path)
     package = plz.build_package(
-        build_path, *files, requirements=requirements_file, zipped_prefix="python"
+        build_path, *files, requirements=requirements_file, zipped_prefix=Path("python")
     )
 
     logger.info(f"Built package for {layer} at {package}")
