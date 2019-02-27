@@ -1,0 +1,77 @@
+# https://gitlab.invenia.ca/infrastructure/lambdalayers/blob/master/test/stack.yml
+#
+# Creates a bare bones AWS environment used to test the lambdalayers package.
+#
+# ```
+# aws cloudformation create-stack \
+#   --stack-name laymbdalayers-test \
+#   --template-body file://test/stack.yml \
+#   --capabilities CAPABILITY_NAMED_IAM
+# ```
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  A bare bones AWS environment used to test the lambdalayers package.
+
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-specific-parameter-types
+Parameters:
+  CIRoleArn:
+    Description: The role ARN used when executing GitLab CI test stage jobs.
+    Type: String
+    Default: ""
+    AllowedPattern: "|arn:aws:iam::\\d{12}:role/[^/]+"
+
+Conditions:
+  Testing: !Not [!Equals [!Ref CIRoleArn, ""]]
+
+Resources:
+  TestRole:
+    Type: AWS::IAM::Role
+    Condition: Testing
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-TestRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref CIRoleArn
+            Action: sts:AssumeRole
+
+  # Similar to the "JLBatchManagerPolicy" but includes additional required permissions
+  # necessary for running the AWSClusterManagers online batch tests.
+  TestPolicy:
+    Type: AWS::IAM::Policy
+    Condition: Testing
+    Properties:
+      PolicyName: TestPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          # standard usage permissions
+          - Effect: Allow
+            Action:
+              - "lambda:AddLayerVersionPermission"
+              - "lambda:ListLayers"
+              - "lambda:ListLayerVersions"
+              - "lambda:PublishLayerVersion"
+            Resource: "*"
+          # testing permissions
+          - Effect: Allow
+            Action:
+              - "lambda:CreateFunction"
+              - "lambda:DeleteFunction"
+              - "lambda:DeleteLayerVersion"
+              - "lambda:GetFunction"
+              - "lambda:Invoke"
+              - "lambda:ListFunctions"
+              - "lambda:RemoveLayerVersionPermission"
+            Resource:
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:*:${AWS::StackName}-Test*"
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:*:None-Test*"
+          - Effect: Allow
+            Action:
+              - "organizations:DescribeOrganization"
+            Resource:
+              - "*"
+      Roles: [!Ref TestRole]

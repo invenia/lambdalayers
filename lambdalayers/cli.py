@@ -92,7 +92,11 @@ def publish_layer(
 
     files, requirements_file = _read_local_layer(local_path)
     package = plz.build_package(
-        build_path, *files, requirements=requirements_file, zipped_prefix=Path("python")
+        build_path,
+        *files,
+        requirements=requirements_file,
+        zipped_prefix=Path("python"),
+        force=True,
     )
 
     logger.info(f"Built package for {layer} at {package}")
