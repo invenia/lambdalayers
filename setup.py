@@ -1,6 +1,6 @@
-from setuptools import find_packages, setup
+from os.path import abspath, dirname, join
 
-from lambdalayers.version import __version__
+from setuptools import find_packages, setup
 
 
 TEST_DEPS = ["coverage", "pytest", "pytest-cov", "requests"]
@@ -12,9 +12,14 @@ REQUIREMENTS = [
 
 EXTRAS = {"test": TEST_DEPS, "check": CHECK_DEPS, "dev": TEST_DEPS + CHECK_DEPS}
 
+# Read in the version
+with open(join(dirname(abspath(__file__)), "VERSION")) as version_file:
+    version = version_file.read().strip()
+
+
 setup(
     name="lambdalayers",
-    version=__version__,
+    version=version,
     description="Some useful AWS Lambda layers for Invenia (and code to deploy them)",
     author="Invenia Technical Computing",
     url="https://gitlab.invenia.ca/infrastructure/lambdalayers",
@@ -23,4 +28,5 @@ setup(
     tests_require=TEST_DEPS,
     extras_require=EXTRAS,
     entry_points={"console_scripts": ["lls = lambdalayers.cli:main"]},
+    include_package_data=True,
 )
