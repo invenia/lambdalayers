@@ -15,6 +15,31 @@ logger = logging.getLogger(__name__)
 def list_layers(
     boto_session, runtime: Optional[str] = None
 ) -> Iterator[Dict[str, Any]]:
+    """List Lambda layers visible from the current AWS account
+
+    Args:
+        boto_session: A boto3.session.Session instance
+        runtime (optional): Only fetch layers which support this runtime
+
+    Returns:
+        An iterator over dicts with str keys, each representing a Lambda layer
+
+        An example dict::
+
+            {
+                'LayerName': 'cfnresponse',
+                'LayerArn':
+                    'arn:aws:lambda:us-east-1:468665244580:layer:cfnresponse',
+                'LatestMatchingVersion': {
+                    'LayerVersionArn':
+                        'arn:aws:lambda:us-east-1:468665244580:layer:cfnresponse:2',
+                    'Version': 2,
+                    'Description': 'v0.0.2',
+                    'CreatedDate': '2019-02-08T21:44:43.782+0000',
+                    'CompatibleRuntimes': ['python3.6'],
+                },
+            }
+    """
     lambda_client = boto_session.client("lambda")
     paginator = lambda_client.get_paginator("list_layers")
     if runtime:
@@ -30,6 +55,27 @@ def list_layers(
 def list_versions(
     boto_session, layer: str, runtime: Optional[str] = None
 ) -> Iterator[Dict[str, Any]]:
+    """List versions of a Lambda layer visible from the current AWS account
+
+    Args:
+        boto_session: A boto3.session.Session instance
+        layer: Layer name or ARN
+        runtime (optional): Only fetch layer versions which support this runtime
+
+    Returns:
+        An iterator over dicts with str keys, each representing a Lambda layer version
+
+        An example dict::
+
+            {
+                'LayerVersionArn':
+                    'arn:aws:lambda:us-east-1:468665244580:layer:cfnresponse:2',
+                'Version': 2,
+                'Description': 'v0.0.2',
+                'CreatedDate': '2019-02-08T21:44:43.782+0000',
+                'CompatibleRuntimes': ['python3.6'],
+            }
+    """
     lambda_client = boto_session.client("lambda")
     paginator = lambda_client.get_paginator("list_layer_versions")
     if runtime:
@@ -82,11 +128,86 @@ def publish_layer(
     layer: str,
     version: str,
     local_path: Path,
-    build_path: Path,
+    build_path: Optional[Path],
     runtimes: List[str],
     account: str,
     organization: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Publish a Lambda layer
+
+    Args:
+        boto_session: A boto3.session.Session instance
+        layer: The name for the layer
+        version: The description for the layer version
+        local_path: The location of the files for the layer version
+        build_path: The location for the temporary build directory, or None
+        runtimes: List of runtimes the layer version supports
+        account: The account id for the account allowed to access this layer
+            version, or '*'
+        organization (optional): The organization id for the organization
+            allowed to access this layer (if this is provided, account should
+            be '*')
+
+    Returns:
+        A dict with str keys, representing the published Lambda layer version
+
+        An example dict::
+
+            {
+                'ResponseMetadata': {
+                    'RequestId': '88917c99-3ba1-11e9-843c-57b89af855ed',
+                    'HTTPStatusCode': 201,
+                    'HTTPHeaders': {
+                        'date': 'Thu, 28 Feb 2019 21:41:01 GMT',
+                        'content-type': 'application/json',
+                        'content-length': '1566',
+                        'connection': 'keep-alive',
+                        'x-amzn-requestid':
+                            '88917c99-3ba1-11e9-843c-57b89af855ed',
+                    },
+                    'RetryAttempts': 0,
+                },
+                'Content': {
+                    'Location': (
+                        'https://prod-04-2014-layers.s3.amazonaws.com/snapshot'
+                        's/468665244580/cfnresponse-31b1a38e-3e67-4742-94c3-b3'
+                        '03c005cbc0?versionId=kVpRDTcxaNWGwwoSm9411v7EWIcDvrTU'
+                        '&X-Amz-Security-Token=FQoGZXIvYXdzEO7%2F%2F%2F%2F%2F%'
+                        '2F%2F%2F%2F%2FwEaDAQpqftoIR%2B7Z6NQAyK3A22UzG8sgM3N8p'
+                        'nGx%2BSeMB8ytJmvlcl9olglEXlCOiBNTA8riLM%2FqDu0iu12mwT'
+                        'ar0Dp5ZH1vZm3N270ULFhk%2FcTqUhsTKZ8vAFlQN6Aiw5IAkB1nZ'
+                        'dDP6AKS6h8HbCYUCad6EV%2FeD0XZy97u7POBzkVoW6PeRtR3P6m4'
+                        'zGMbwDAlZQwCA3UrXGa1nDvbaz01rszAIlIIJ4VOX%2FsoJKYxJci'
+                        'VM1E5D2BE8L4jgXfNVNedxAPzlUtcvXuAP%2BGZt6FDbOgNP%2F6s'
+                        'mV85RYKNH1cyJUHX6oLTt0HZIy0L2MqVVElBHNPreXv1CsWZyAxRp'
+                        '7eSaYdnvERhKe%2BfyTZYuDmrzRG%2BcsAWTSA9FbceNOQ%2Br3BC'
+                        'kmWDmAVcaAIz3IVLWRnoNC%2BJVunqGjn3i%2FfZknE9uZT7kkqGd'
+                        'bpeAPgbEIHv07ikzJlIfj2CqePnkktn7A24tgrlpC0PhNSP2a2%2B'
+                        'QGWLZXIfVJCqt5UyXyEJAH%2FvlaFbV%2BdfkRM%2FmtVhStxOjob'
+                        'u9fkceqOLC%2BQbLhPsj8zuLC3mrt%2BAmYZ%2BbpzYxtqym2qjEl'
+                        'm8e%2FEyF1hGqRjGV0PESRLXk%2FzDiQotYfh4wU%3D&X-Amz-Alg'
+                        'orithm=AWS4-HMAC-SHA256&X-Amz-Date=20190228T214057Z&X'
+                        '-Amz-SignedHeaders=host&X-Amz-Expires=600&X-Amz-Crede'
+                        'ntial=ASIA25DCYHY3SG446V37%2F20190228%2Fus-east-1%2Fs'
+                        '3%2Faws4_request&X-Amz-Signature=f1ebc2a55fb3b2bc3fd1'
+                        '2645986ee015f94f2a5bb72b5e19b73399ebba49e285'
+                    ),
+                    'CodeSha256':
+                        'YWAl3bA2336oE9UeBBHzkK02QBKGxiPkT6JmNY8AA4A=',
+                    'CodeSize': 1991,
+                },
+                'LayerArn':
+                    'arn:aws:lambda:us-east-1:468665244580:layer:cfnresponse',
+                'LayerVersionArn':
+                    'arn:aws:lambda:us-east-1:468665244580:layer:cfnresponse:3',
+                'Description': 'v0.0.3',
+                'CreatedDate': '2019-02-28T21:41:01.191+0000',
+                'Version': 3,
+                'CompatibleRuntimes': ['python3.6'],
+            }
+
+        Note that the 'Location' value is a temporary URL valid for 10 minutes
+    """
     build_path = build_path or local_path / ".build"
 
     lambda_client = boto_session.client("lambda")
@@ -123,7 +244,7 @@ def publish_layer(
     )
 
     if organization:
-        logger.info(f"Allowed organization '{organization}'' to access '{version_arn}'")
+        logger.info(f"Allowed organization '{organization}' to access '{version_arn}'")
     elif account == "*":
         logger.info(f"Allowed anyone to access '{version_arn}'")
     else:
@@ -213,7 +334,7 @@ def parse_args(args=None):
             "--region",
             default=None,
             help=(
-                "The AWS region to use."
+                "The AWS region to use. "
                 "If not given, deploy will fall back to config/env settings."
             ),
         )
@@ -221,7 +342,7 @@ def parse_args(args=None):
             "--profile",
             default=None,
             help=(
-                "The AWS profile to use."
+                "The AWS profile to use. "
                 "If not given, deploy will fall back to config/env settings."
             ),
         )
@@ -262,14 +383,21 @@ def parse_args(args=None):
                 "--runtimes",
                 nargs="+",
                 required=True,
-                help="Compatible runtimes (e.g., `python3.6 python3.7`) for this layer",
+                help=(
+                    "Compatible runtimes (e.g., `python3.6 python3.7`) for this layer. "
+                    "Due to limitations with the `plz` library, only provide the "
+                    "current version of python for layers with requirements."
+                ),
             )
 
             subparser.add_argument("--version", help="Layer version to publish")
 
             permissions_group_parent = subparser.add_argument_group(
                 title="layer permissions",
-                description="permissions for the resource-based policy of the layer",
+                description=(
+                    "Permissions for the resource-based policy of the layer. "
+                    "Provide one of the following arguments:"
+                ),
             )
 
             permissions_group = permissions_group_parent.add_mutually_exclusive_group(

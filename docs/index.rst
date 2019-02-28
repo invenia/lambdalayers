@@ -11,7 +11,7 @@ Some useful AWS Lambda layers for Invenia (and code to deploy them)
    general/index
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 3
    :caption: Code Reference
    :name: sec-code-ref
 
