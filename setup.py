@@ -3,6 +3,8 @@ from os.path import abspath, dirname, join
 from setuptools import find_packages, setup
 
 
+PLZ_LOCATION = "git+https://gitlab.invenia.ca/infrastructure/plz@master#egg=plz"
+
 TEST_DEPS = ["coverage", "pytest", "pytest-cov", "requests"]
 DOCS_DEPS = [
     "sphinx",
@@ -12,10 +14,7 @@ DOCS_DEPS = [
     "sphinxcontrib-runcmd",
 ]
 CHECK_DEPS = ["isort", "flake8", "flake8-quotes", "pep8-naming", "black", "mypy"]
-REQUIREMENTS = [
-    "plz @ git+https://gitlab.invenia.ca/infrastructure/plz@master#egg=plz",
-    "boto3",
-]
+REQUIREMENTS = [f"plz @ {PLZ_LOCATION}", "boto3"]
 
 EXTRAS = {
     "test": TEST_DEPS,
@@ -39,6 +38,7 @@ setup(
     install_requires=REQUIREMENTS,
     tests_require=TEST_DEPS,
     extras_require=EXTRAS,
+    dependency_links=[PLZ_LOCATION],
     entry_points={"console_scripts": ["lls = lambdalayers.cli:main"]},
     include_package_data=True,
 )
