@@ -124,6 +124,11 @@ variables:
 "Code Format Check":
   <<: *config_3_6
   stage: setup
+  before_script:
+    - curl -sS -o julia-ci https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/julia-ci
+    - chmod +x julia-ci
+    - ./julia-ci install-cred-helper
+    - pip3 install tox tox-venv
   script:
     - tox -re check
 
@@ -213,11 +218,21 @@ variables:
   when: always
   <<: *delete
 
+"Build Documentation":
+  <<: *config_3_6
+  stage: teardown
+  artifacts:
+    paths:
+      - dist/docs
+    expire_in: 24 hours
+  script:
+    - tox -re docs
 
 pages:
   stage: deploy
   dependencies:
     - "Coverage"
+    - "Build Documentation"
   artifacts:
     paths:
       - public
@@ -227,3 +242,4 @@ pages:
   script:
     - mkdir public
     - mv dist/coverage public/coverage
+    - mv dist/docs public/docs
