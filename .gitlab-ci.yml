@@ -137,10 +137,11 @@ variables:
   stage: setup
   only:
     - tags
-  script:
+  before_script:
     - pip3 install virtualenv
     - virtualenv venv
     - source venv/bin/activate
+  script:
     - pip install --no-use-pep517 -e .
     - package_version=$(python -c "import lambdalayers; print(lambdalayers.__version__")
     - |
