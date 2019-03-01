@@ -215,7 +215,7 @@ variables:
 
 "Build Documentation":
   <<: *config_3_6
-  stage: docs
+  stage: teardown
   artifacts:
     paths:
       - dist/docs
