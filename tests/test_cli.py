@@ -7,7 +7,7 @@ import boto3
 import pytest
 import requests
 
-from lambdalayers.cli import (
+from lambdalayers.api import (
     _permission_ids,
     _read_local_layer,
     list_layers,

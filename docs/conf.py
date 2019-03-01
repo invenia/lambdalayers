@@ -71,7 +71,7 @@ autoapi_type = "python"
 autoapi_dirs = ["../lambdalayers/"]
 autoapi_template_dir = "docs/autoapi_templates"
 autoapi_root = "autoapi"
-autoapi_ignore = ["*/lambdalayers/version.py"]
+autoapi_ignore = ["*/lambdalayers/version.py", "*/lambdalayers/cli.py"]
 autoapi_add_toctree_entry = False
 autoapi_keep_files = False
 
