@@ -175,8 +175,6 @@ variables:
     expire_in: 24 hours
   script:
     - tox -re coverage
-  script:
-    - tox -re docs
 
 .delete: &delete
   tags:
