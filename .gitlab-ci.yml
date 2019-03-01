@@ -146,7 +146,7 @@ variables:
     - source venv/bin/activate
   script:
     - pip install --no-use-pep517 -e .
-    - package_version=$(python -c "import lambdalayers; print(lambdalayers.__version__")
+    - package_version=$(python -c "import lambdalayers; print(lambdalayers.__version__)")
     - |
       if [[ ${CI_COMMIT_TAG} != ${package_version} ]] ; then
         echo "tag '$CI_COMMIT_TAG' does not match python version '$package_version'"
