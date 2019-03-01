@@ -63,6 +63,12 @@ variables:
   # Export temp credentials
   export AWS_SHARED_CREDENTIALS_FILE="$(pwd)/tmp-creds"
 
+.install_cred_helper: &install_cred_helper
+  |
+  curl -sS -o julia-ci https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/julia-ci
+  chmod +x julia-ci
+  ./julia-ci install-cred-helper
+
 .assume_test_profile: &assume_test_profile
   |
   aws-credentials \
@@ -77,9 +83,7 @@ variables:
   image: python:3.6
   before_script:
     - *runtime_variables
-    - curl -sS -o julia-ci https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/julia-ci
-    - chmod +x julia-ci
-    - ./julia-ci install-cred-helper
+    - *install_cred_helper
     - pip3 install tox tox-venv
     - *cloudspy_install
     - *assume_test_profile
@@ -125,9 +129,7 @@ variables:
   <<: *config_3_6
   stage: setup
   before_script:
-    - curl -sS -o julia-ci https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/julia-ci
-    - chmod +x julia-ci
-    - ./julia-ci install-cred-helper
+    - *install_cred_helper
     - pip3 install tox tox-venv
   script:
     - tox -re check
@@ -138,6 +140,7 @@ variables:
   only:
     - tags
   before_script:
+    - *install_cred_helper
     - pip3 install virtualenv
     - virtualenv venv
     - source venv/bin/activate
