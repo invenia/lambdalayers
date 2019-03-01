@@ -1,6 +1,6 @@
 # Lambda Layers
 
-[![Docs Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://infrastructure.pages.invenia.ca/cloudspy/docs/)
+[![Docs Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://infrastructure.pages.invenia.ca/lambdalayers/docs/)
 [![Build Status](https://gitlab.invenia.ca/infrastructure/lambdalayers/badges/master/build.svg)](https://gitlab.invenia.ca/infrastructure/lambdalayers/commits/master)
 [![Coverage Status](https://gitlab.invenia.ca/infrastructure/lambdalayers/badges/master/coverage.svg)](https://infrastructure.pages.invenia.ca/lambdalayers/coverage/)
 [![Python Version](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/)
