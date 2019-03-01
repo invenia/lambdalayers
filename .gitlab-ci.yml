@@ -124,6 +124,11 @@ variables:
 "Code Format Check":
   <<: *config_3_6
   stage: setup
+  before_script:
+    - curl -sS -o julia-ci https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/julia-ci
+    - chmod +x julia-ci
+    - ./julia-ci install-cred-helper
+    - pip3 install tox tox-venv
   script:
     - tox -re check
 
