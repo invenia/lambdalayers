@@ -101,6 +101,9 @@ variables:
     - assume_test_role
     - tox -re py3-online
 
+"Upload to PyPiCloud":
+  extends: .upload_to_pypicloud
+
 .delete: &delete
   tags:
     - docker-ci
