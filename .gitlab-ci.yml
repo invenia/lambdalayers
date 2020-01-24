@@ -1,3 +1,14 @@
+---
+include:
+  - project: infrastructure/gitlab-ci-helper
+    file: /templates/common-functions.yml
+  - project: infrastructure/gitlab-ci-helper
+    file: /templates/python.yml
+  - project: infrastructure/gitlab-ci-helper
+    file: /templates/py-check.yml
+  - project: infrastructure/gitlab-ci-helper
+    file: /templates/teardown.yml
+
 stages:
   - setup
   - test
@@ -5,63 +16,22 @@ stages:
   - deploy
 
 variables:
-  STACKNAME_PREFIX: sandbox-lambdalayers
+  STACK_NAME_PREFIX: sandbox-lambdalayers
   AWS_DEFAULT_REGION: us-east-1
   TOX_TESTENV_PASSENV: AWS_DEFAULT_REGION STACKNAME AWS_SHARED_CREDENTIALS_FILE AWS_PROFILE
   AMAZON_LINUX_IMAGE: amazonlinux:2
   # Force Docker authentication to be isolated to a pipeline
   DOCKER_CONFIG: $CI_PROJECT_DIR/.docker
 
+.setup: &setup |
+  echo "$common_functions" > common && source common
+
 # Variables that require shell execution or depend on a variable that does
 .runtime_variables: &runtime_variables
   |
   # Declare runtime variables
-  #
-  # Make unique stacks for each executed pipeline for `master`. This will allow fast successive merges
-  # to work correctly.
-  if [[ ${CI_COMMIT_REF_SLUG} == "master" ]]; then
-      export STACKNAME="${STACKNAME_PREFIX}-master-${CI_PIPELINE_ID}"
-  else
-      export STACKNAME="${STACKNAME_PREFIX}-${CI_COMMIT_REF_SLUG/\//}"  # Replace an forward slashes with a hyphen
-  fi
-  ACCOUNT_ID=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | grep -oP '(?<="accountId" : ")[^"]*(?=")')
-  REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | grep -oP '(?<="region" : ")[^"]*(?=")')
-  export AWS_DEFAULT_REGION=$(echo $REGION)
-
-.awscli_install: &awscli_install
-  |
-  # Build cloudspy and its dependencies
-  NEED_SUDO="sudo"
-
-  # docker-ci has slightly different install parameters
-  if [[ ${CI_RUNNER_TAGS} == *"docker-ci"* ]]; then
-    # Install which command
-    yum -y install which
-    # Install epel to get python36 rather than python3
-    amazon-linux-extras install epel
-    # We don't need to use sudo on the docker-ci tagged instances
-    NEED_SUDO=""
-  fi
-
-  # Install python36, virtualenv, and necessary packages
-  ${NEED_SUDO} yum -y install python36 python36-devel python-virtualenv gcc git
-
-  # Install a virtualenv with python 3 and activate it
-  virtualenv --python=$(which python36) venv
-  source venv/bin/activate
-
-  # Install AWSCli
-  pip install --upgrade awscli
-
-  # Print aws version
-  aws --version
-
-.cloudspy_install: &cloudspy_install
-  |
-  # Install Cloudspy in the env
-  pip install git+https://gitlab-ci-token:${CI_BUILD_TOKEN}@gitlab.invenia.ca/infrastructure/cloudspy.git#egg=cloudspy
-  # Export temp credentials
-  export AWS_SHARED_CREDENTIALS_FILE="$(pwd)/tmp-creds"
+  STACK_NAME=$(stack_name $STACK_NAME_PREFIX)
+  ACCOUNT_ID=$(aws_account_id)
 
 .install_cred_helper: &install_cred_helper
   |
@@ -69,26 +39,19 @@ variables:
   chmod +x julia-ci
   ./julia-ci install-cred-helper
 
-.assume_test_profile: &assume_test_profile
-  |
-  aws-credentials \
-    --credentials-file=$AWS_SHARED_CREDENTIALS_FILE \
-    --role-arn arn:aws:iam::${ACCOUNT_ID}:role/${STACKNAME}-TestRole \
-    --role-session-name test
-  export AWS_PROFILE=test
-
-.config_3_6: &config_3_6
+.docker_test_3: &docker_test_3
+  stage: test
   tags:
-    - docker-ci
-  image: python:3.6
+    - amzn2
+    - docker-build
   before_script:
+    - *setup
+    - enter_python_venv
     - *runtime_variables
-    - *install_cred_helper
-    - pip3 install tox tox-venv
-    - *cloudspy_install
-    - *assume_test_profile
-  script:
-    - tox -re py36
+    - install_cloudspy
+    - pip install tox
+    - docker --version
+  extends: .save_test_coverage
 
 "Setup Environment":
   stage: setup
@@ -110,71 +73,33 @@ variables:
     - ci-account
   image: $AMAZON_LINUX_IMAGE
   before_script:
+    - *setup
     - *runtime_variables
     - yum -y update
-    - *awscli_install
-    - *cloudspy_install
+    - install_awscli
+    - install_cloudspy
   script:
     - aws cloudformation validate-template --template-body file://tests/stack.yml
     - |
       aws-create-stack \
         --role-arn arn:aws:iam::${ACCOUNT_ID}:role/CloudFormationAdmin \
-        --stackname $STACKNAME \
+        --stackname $STACK_NAME \
         --template-body ./tests/stack.yml \
         --wait \
         --params CIRoleArn=arn:aws:iam::${ACCOUNT_ID}:role/GitLabCIRunnerRole
 
-
-"Code Format Check":
-  <<: *config_3_6
-  stage: setup
-  before_script:
-    - *install_cred_helper
-    - pip3 install tox tox-venv
+"Test Python 3 (Offline)":
+  extends: .docker_test_3
+  needs:
+    - Code Format Check
   script:
-    - tox -re check
+    - tox -re py3-offline
 
-"Check Version":
-  <<: *config_3_6
-  stage: setup
-  only:
-    - tags
-  before_script:
-    - *install_cred_helper
-    - pip3 install virtualenv
-    - virtualenv venv
-    - source venv/bin/activate
+"Test Python 3 (Online)":
+  extends: .docker_test_3
   script:
-    - pip install --no-use-pep517 -e .
-    - package_version=$(python -c "import lambdalayers; print(lambdalayers.__version__)")
-    - |
-      if [[ ${CI_COMMIT_TAG} != ${package_version} ]] ; then
-        echo "tag '$CI_COMMIT_TAG' does not match python version '$package_version'"
-        exit 1
-      fi
-
-"Test Python 3.6":
-  <<: *config_3_6
-  stage: test
-  artifacts:
-    paths:
-      - .coverage.*
-    expire_in: 24 hours
-  script:
-    - tox -re py36
-
-"Coverage":
-  <<: *config_3_6
-  stage: teardown
-  dependencies:
-    - "Test Python 3.6"
-  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+\.\d+%)/'
-  artifacts:
-    paths:
-      - dist/coverage
-    expire_in: 24 hours
-  script:
-    - tox -re coverage
+    - assume_test_role
+    - tox -re py3-online
 
 .delete: &delete
   tags:
@@ -182,18 +107,19 @@ variables:
     - ci-account
   image: $AMAZON_LINUX_IMAGE
   before_script:
+    - *setup
     - *runtime_variables
-    - *awscli_install
-    - *cloudspy_install
-    - *assume_test_profile
+    - install_awscli
+    - install_cloudspy
+    - assume_test_role
   script:
     - eval $(aws-stack-outputs $STACKNAME)
     - unset AWS_PROFILE  # Switch to back to CI runner role
     - |
       aws cloudformation delete-stack \
         --role-arn arn:aws:iam::${ACCOUNT_ID}:role/CloudFormationAdmin \
-        --stack-name $STACKNAME
-    - aws cloudformation wait stack-delete-complete --stack-name $STACKNAME
+        --stack-name $STACK_NAME
+    - aws cloudformation wait stack-delete-complete --stack-name $STACK_NAME
 
 "Delete Environment":
   stage: teardown
@@ -220,28 +146,3 @@ variables:
   when: always
   <<: *delete
 
-"Build Documentation":
-  <<: *config_3_6
-  stage: teardown
-  artifacts:
-    paths:
-      - dist/docs
-    expire_in: 24 hours
-  script:
-    - tox -re docs
-
-pages:
-  stage: deploy
-  dependencies:
-    - "Coverage"
-    - "Build Documentation"
-  artifacts:
-    paths:
-      - public
-    expire_in: 24 hours
-  only:
-    - tags
-  script:
-    - mkdir public
-    - mv dist/coverage public/coverage
-    - mv dist/docs public/docs
