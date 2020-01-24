@@ -147,7 +147,9 @@ def parse_args(args=None):
                 ),
             )
 
-            subparser.add_argument("--version", help="Layer version to publish")
+            subparser.add_argument(
+                "--version", default="", help="Layer version to publish"
+            )
 
             permissions_group_parent = subparser.add_argument_group(
                 title="layer permissions",

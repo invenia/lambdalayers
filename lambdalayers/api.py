@@ -1,9 +1,17 @@
 import itertools
 import logging
+import os
+import re
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
+from zipfile import ZipFile
 
-import plz
+import plz  # type: ignore
+
+
+RUNTIME_VERSION_REGEX = r"^python(?P<version>\d\.\d+)$"
 
 
 logger = logging.getLogger(__name__)
@@ -120,6 +128,88 @@ def _permission_ids(
     return account, organization
 
 
+def _zipfiles_equal(z1: Path, z2: Path):
+    z1_files = sorted(ZipFile(z1).infolist(), key=lambda x: x.filename)
+    z2_files = sorted(ZipFile(z2).infolist(), key=lambda x: x.filename)
+
+    def zipinfo_equal(a, b):
+        if a is None or b is None:
+            return False
+
+        return (
+            a.filename == b.filename and a.file_size == b.file_size and a.CRC == b.CRC
+        )
+
+    return all(
+        itertools.starmap(zipinfo_equal, itertools.zip_longest(z1_files, z2_files))
+    )
+
+
+def python_version(runtime: str):
+    m = re.match(RUNTIME_VERSION_REGEX, runtime)
+    if m is None:
+        raise ValueError(
+            f"Runtime '{runtime}' invalid; must match `{RUNTIME_VERSION_REGEX}`"
+        )
+
+    return m.group("version")
+
+
+def build_layer(
+    local_path: Path, runtimes: List[str], build_path: Optional[Path] = None
+):
+    if not runtimes:
+        raise ValueError("Must build for at least one Lambda runtime")
+
+    build_path = build_path or local_path / ".build"
+
+    package_zips = []
+    for version in map(python_version, runtimes):
+        version_build_path = build_path / version
+        files, requirements_file = _read_local_layer(local_path)
+        package_zips.append(
+            plz.build_package(
+                version_build_path,
+                *files,
+                requirements=requirements_file,
+                python_version=version,
+                zipped_prefix=Path("python"),
+                force=True,
+            )
+        )
+
+    if len(runtimes) == 1:
+        logger.debug("Built a single-runtime layer zip")
+        return Path(shutil.copy(package_zips[0], build_path))
+
+    # if the zip files are all the same, we don't need to create a multiversion zip
+    if all(map((lambda p: _zipfiles_equal(package_zips[0], p)), package_zips[1:])):
+        logger.debug("Built a cross-compatible layer zip")
+        return Path(shutil.copy(package_zips[0], build_path))
+
+    multi_path = build_path / package_zips[0].name
+    with tempfile.TemporaryDirectory(prefix="lambdalayers") as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        combine_path = tmp_path / "package"
+
+        # writing data from Python into a zip file with zipfile does not preserve
+        # permissions, so here we extract each zip to disk and recombine them
+        for package, runtime in zip(package_zips, runtimes):
+            extract_path = tmp_path / runtime
+            extract_path.mkdir()
+            prefix = Path("python") / "lib" / runtime / "site-packages"
+
+            with ZipFile(package, "r") as single_z:
+                single_z.extractall(path=extract_path)
+
+            os.renames(extract_path / "python", combine_path / prefix)
+
+        shutil.make_archive(build_path / package_zips[0].stem, "zip", combine_path)
+
+    logger.debug("Built a multi-runtime layer zip")
+    return multi_path
+
+
 def publish_layer(
     boto_session,
     layer: str,
@@ -205,18 +295,9 @@ def publish_layer(
 
         Note that the 'Location' value is a temporary URL valid for 10 minutes
     """
-    build_path = build_path or local_path / ".build"
-
     lambda_client = boto_session.client("lambda")
 
-    files, requirements_file = _read_local_layer(local_path)
-    package = plz.build_package(
-        build_path,
-        *files,
-        requirements=requirements_file,
-        zipped_prefix=Path("python"),
-        force=True,
-    )
+    package = build_layer(local_path, runtimes, build_path)
 
     logger.info(f"Built package for {layer} at {package}")
 
