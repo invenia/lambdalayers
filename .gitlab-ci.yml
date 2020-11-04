@@ -1,12 +1,10 @@
 ---
 include:
-  - project: infrastructure/gitlab-ci-helper
-    file: /templates/common-functions.yml
-  - project: infrastructure/gitlab-ci-helper
+  - project: invenia/gitlab-ci-helper
     file: /templates/python.yml
-  - project: infrastructure/gitlab-ci-helper
+  - project: invenia/gitlab-ci-helper
     file: /templates/py-check.yml
-  - project: infrastructure/gitlab-ci-helper
+  - project: invenia/gitlab-ci-helper
     file: /templates/teardown.yml
 
 stages:
@@ -35,7 +33,7 @@ variables:
 
 .install_cred_helper: &install_cred_helper
   |
-  curl -sS -o julia-ci https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/julia-ci
+  curl -sS -o julia-ci https://gitlab.invenia.ca/invenia/gitlab-ci-helper/raw/master/julia-ci
   chmod +x julia-ci
   ./julia-ci install-cred-helper
 
@@ -81,10 +79,10 @@ variables:
   script:
     - aws cloudformation validate-template --template-body file://tests/stack.yml
     - |
-      aws-create-stack \
+      aws-deploy-stack \
         --role-arn arn:aws:iam::${ACCOUNT_ID}:role/CloudFormationAdmin \
-        --stackname $STACK_NAME \
-        --template-body ./tests/stack.yml \
+        --stack-name $STACK_NAME \
+        --template-file ./tests/stack.yml \
         --wait \
         --params CIRoleArn=arn:aws:iam::${ACCOUNT_ID}:role/GitLabCIRunnerRole
 
@@ -101,8 +99,8 @@ variables:
     - assume_test_role
     - tox -re py3-online
 
-"Upload to PyPiCloud":
-  extends: .upload_to_pypicloud
+"Upload to Private PyPi":
+  extends: .upload_to_private_pypi
 
 .delete: &delete
   tags:
@@ -148,4 +146,3 @@ variables:
     - /^.+\/.*master$/
   when: always
   <<: *delete
-
