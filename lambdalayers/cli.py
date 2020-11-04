@@ -37,7 +37,7 @@ def main(args=None):
             if args.runtime:
                 logger.info(f"No layers found supporting '{args.runtime}'")
             else:
-                logger.info(f"No layers found")
+                logger.info("No layers found")
     elif args.command == "versions":
         versions = api.list_versions(session, args.layer, args.runtime)
         any_found = False

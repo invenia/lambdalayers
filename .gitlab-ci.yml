@@ -79,10 +79,10 @@ variables:
   script:
     - aws cloudformation validate-template --template-body file://tests/stack.yml
     - |
-      aws-create-stack \
+      aws-deploy-stack \
         --role-arn arn:aws:iam::${ACCOUNT_ID}:role/CloudFormationAdmin \
-        --stackname $STACK_NAME \
-        --template-body ./tests/stack.yml \
+        --stack-name $STACK_NAME \
+        --template-file ./tests/stack.yml \
         --wait \
         --params CIRoleArn=arn:aws:iam::${ACCOUNT_ID}:role/GitLabCIRunnerRole
 
