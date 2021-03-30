@@ -1,47 +1,49 @@
-# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html
 
-#  Copyright 2016 Amazon Web Services, Inc. or its affiliates. All Rights Reserved.
-#  This file is licensed to you under the AWS Customer Agreement (the "License").
-#  You may not use this file except in compliance with the License.
-#  A copy of the License is located at http://aws.amazon.com/agreement/ .
-#  This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied.
-#  See the License for the specific language governing permissions and limitations under the License.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
 from __future__ import print_function
-
-from botocore.vendored import requests
+import urllib3
 import json
 
 SUCCESS = "SUCCESS"
 FAILED = "FAILED"
 
+http = urllib3.PoolManager()
 
-def send(
-    event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False
-):
-    responseUrl = event["ResponseURL"]
+
+def send(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False, reason=None):
+    responseUrl = event['ResponseURL']
 
     print(responseUrl)
 
-    responseBody = {}
-    responseBody["Status"] = responseStatus
-    responseBody["Reason"] = (
-        "See the details in CloudWatch Log Stream: " + context.log_stream_name
-    )
-    responseBody["PhysicalResourceId"] = physicalResourceId or context.log_stream_name
-    responseBody["StackId"] = event["StackId"]
-    responseBody["RequestId"] = event["RequestId"]
-    responseBody["LogicalResourceId"] = event["LogicalResourceId"]
-    responseBody["NoEcho"] = noEcho
-    responseBody["Data"] = responseData
+    responseBody = {
+        'Status' : responseStatus,
+        'Reason' : reason or "See the details in CloudWatch Log Stream: {}".format(context.log_stream_name),
+        'PhysicalResourceId' : physicalResourceId or context.log_stream_name,
+        'StackId' : event['StackId'],
+        'RequestId' : event['RequestId'],
+        'LogicalResourceId' : event['LogicalResourceId'],
+        'NoEcho' : noEcho,
+        'Data' : responseData
+    }
 
     json_responseBody = json.dumps(responseBody)
 
-    print("Response body:\n" + json_responseBody)
+    print("Response body:")
+    print(json_responseBody)
 
-    headers = {"content-type": "", "content-length": str(len(json_responseBody))}
+    headers = {
+        'content-type' : '',
+        'content-length' : str(len(json_responseBody))
+    }
 
     try:
-        response = requests.put(responseUrl, data=json_responseBody, headers=headers)
-        print("Status code: " + response.reason)
+        response = http.request('PUT', responseUrl, headers=headers, body=json_responseBody)
+        print("Status code:", response.status)
+
+
     except Exception as e:
-        print("send(..) failed executing requests.put(..): " + str(e))
+
+        print("send(..) failed executing http.request(..):", e)
