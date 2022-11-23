@@ -12,7 +12,7 @@ DOCS_DEPS = [
     "sphinxcontrib-runcmd",
 ]
 CHECK_DEPS = ["isort", "flake8", "flake8-quotes", "pep8-naming", "black", "mypy"]
-REQUIREMENTS = ["plz~=1.0", "boto3"]
+REQUIREMENTS = ["plz~=3.0.1", "boto3", "docker"]
 
 EXTRAS = {
     "test": TEST_DEPS,

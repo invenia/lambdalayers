@@ -168,13 +168,12 @@ def build_layer(
         version_build_path = build_path / version
         files, requirements_file = _read_local_layer(local_path)
         package_zips.append(
-            plz.build_package(
+            plz.build_zip(
                 version_build_path,
                 *files,
                 requirements=requirements_file,
                 python_version=version,
                 zipped_prefix=Path("python"),
-                force=True,
             )
         )
 
